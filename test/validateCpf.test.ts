@@ -1,4 +1,4 @@
-import { validateCpf } from "../src/validateCpf_";
+import { validateCpf } from "../src/validateCpf";
 
 test("Deve retornar true para cpf válido com pontuação", () => {
     const result = validateCpf("137.517.420-77");
