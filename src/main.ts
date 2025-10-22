@@ -1,58 +1,68 @@
 import express, { Response, Request} from "express";
-import crypto from "crypto"
-import pgp from "pg-promise";
-import { isValidEmail } from "./validateEmail";
-import { validateCpf } from "./validateCpf";
-import { validatePassword } from "./validatePassword";
-var app = express()
-app.use(express.json())
+import Signup from "./UseCases/Signup";
+import GetAccount from "./UseCases/GetAccount";
+import AccountRepositoryDatabase from "./Repositories/AccountRepositoryDatabase";
+import AccountAssetRepositoryDatabase from "./Repositories/AccountAssetRepositoryDatabase";
+import Deposit from "./UseCases/Deposit";
+import GetBalance from "./UseCases/GetBalance";
+import Withdraw from "./UseCases/Withdraw";
 
-const connection = pgp()("postgres://postgres:123456@db:5432/app")
-
-app.post("/signup", async (req: Request, res: Response) => {
-    await connection.query("delete from ccca.account")
-    await connection.query("insert into ccca.account (account_id, name, email, document, password) values ($1,$2,$3,$4,$5)", [
-        crypto.randomUUID(),
-        "Foo Bar",
-        "foo.bar@test.com",
-        "137.517.420-77",
-        "123456"
-    ])
-    const accountId = crypto.randomUUID()
-    const input = req.body;
-    if(input.name.split(" ").length < 2){
-        res.sendStatus(400);
-        return;
-    }
-    if(!input.email || !isValidEmail(input.email)){
-        res.sendStatus(400);
-        return;
-    }
-    const existingAccount = await connection.query("select email from ccca.account where email = $1", [input.email]);
-    if(existingAccount.length > 0){
-        res.sendStatus(400);
-        return;
-    }
-
-    if(!input.document || !validateCpf(input.document)){
-        res.sendStatus(400);
-        return;
-    }
-
-    if(!validatePassword(input.password)){
-        res.sendStatus(400);
-        return;
-    }
+export const main = () => {
+    var app = express()
+    app.use(express.json())
     
-    await connection.query("insert into ccca.account (account_id, name, email, document, password) values ($1,$2,$3,$4,$5)", [accountId, input.name, input.email, input.document, input.password]);
-    res.json({ accountId })
-})
+    app.post("/signup", async (req: Request, res: Response) => {
+        try {
+            const input = req.body;
+            const signup = new Signup(new AccountRepositoryDatabase());
+            const output = await signup.execute(input);
+            res.json(output);
+        }catch(e: any){
+            res.status(400).json({
+                message: e.message
+            })
+        }
+    })
+    
+    app.get("/accounts/:accountId", async (req: Request, res: Response) => {
+        const accountId = req.params.accountId;
+        const getAccount = new GetAccount(new AccountRepositoryDatabase());
+        const account = await getAccount.execute(accountId);
+    
+        res.json(account)
+    })
+    
+    app.post("/deposit", async (req: Request, res: Response) => {
+        try {
+            const depositData = req.body;
+            const deposit = new Deposit(new AccountRepositoryDatabase(), new AccountAssetRepositoryDatabase());
+            await deposit.execute(depositData);
+            res.sendStatus(200)
+        }catch(e: any){
+            res.status(400).send({ message: e.message });
+        }
+    });
+    
+    app.post("/withdraw", async (req: Request, res: Response) => {
+        try {
+            const withDrawData = req.body;
+            const withdraw = new Withdraw(new AccountAssetRepositoryDatabase())
+            await withdraw.execute(withDrawData);
+            res.sendStatus(200);
+        }catch(e: any){
+            res.status(400).send({message: e.message});
+        }
+    })
+    
+    app.get("/account/:accountId/balance/:assetId", async (req: Request, res: Response) => {
+        const accountId = req.params.accountId; 
+        const assetId = req.params.assetId;
+        const getBalance = new GetBalance(new AccountAssetRepositoryDatabase())
+        const output = await getBalance.execute({ assetId, accountId });
+        res.json(output);
+    })
+    
+    app.listen(3000);
+}
 
-app.get("/accounts/:accountId", async (req: Request, res: Response) => {
-    const accountId = req.params.accountId;
-    const [account] = await connection.query("select * from ccca.account where account_id = $1", [accountId]);
-
-    res.json(account)
-})
-
-app.listen(3000);
+main();

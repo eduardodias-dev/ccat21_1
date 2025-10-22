@@ -9,3 +9,12 @@ create table ccca.account (
     document text,
     password text
 );
+
+create table ccca.balance (
+    account_id uuid,
+    asset_id text,
+    quantity int,
+
+    foreign KEY (account_id) REFERENCES ccca.account(account_id)
+
+);

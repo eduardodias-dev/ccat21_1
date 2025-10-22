@@ -10,7 +10,8 @@
     "test:coverage": "jest --coverage",
     "compose:up": "docker-compose -f docker/docker-compose.yml up -d --build",
     "compose:down": "docker-compose -f docker/docker-compose.yml -v down",
-    "compose:exec": "docker-compose -f docker/docker-compose.yml exec -it backend bash"
+    "compose:exec": "docker-compose -f docker/docker-compose.yml exec -it backend bash",
+    "mount": "docker-compose -f docker/docker-compose.yml up -d --build && docker-compose -f docker/docker-compose.yml exec -it backend bash && yarn nodemon src/main.ts"
   },
   "dependencies": {
     "@types/express": "^5.0.3",
